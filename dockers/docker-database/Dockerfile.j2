@@ -11,8 +11,9 @@ ENV DEBIAN_FRONTEND=noninteractive
 # Update apt's cache of available packages
 RUN apt-get update
 
-# Install redis-server
-RUN apt-get install -y redis-tools redis-server
+# Install valkey-server (Redis-compatible replacement)
+# Note: valkey packages provide redis-server and redis-cli symlinks for compatibility
+RUN apt-get install -y valkey-tools valkey-server || apt-get install -y redis-tools redis-server
 
 # Install click for CLI
 RUN pip3 install click
@@ -25,17 +26,24 @@ RUN pip3 install click
 {{ install_debian_packages(docker_database_debs.split(' ')) }}
 {%- endif %}
 
-# Configure redis settings
-RUN sed -ri 's/^# save ""$/save ""/g;                    \
+# Configure valkey/redis settings
+# Support both valkey config (/etc/valkey/valkey.conf) and redis config (/etc/redis/redis.conf)
+RUN CONF_FILE=$( [ -f /etc/valkey/valkey.conf ] && echo /etc/valkey/valkey.conf || echo /etc/redis/redis.conf ) && \
+    sed -ri 's/^# save ""$/save ""/g;                    \
              s/^daemonize yes$/daemonize no/;            \
              s/^logfile .*$/logfile ""/;                 \
              s/^# syslog-enabled no$/syslog-enabled no/; \
              s/^# unixsocket/unixsocket/;                \
+             s/valkey-server.sock/redis.sock/g;          \
              s/redis-server.sock/redis.sock/g;           \
              s/^client-output-buffer-limit pubsub [0-9]+mb [0-9]+mb [0-9]+/client-output-buffer-limit pubsub 0 0 0/; \
              s/^notify-keyspace-events ""$/notify-keyspace-events AKE/; \
              s/^databases [0-9]+$/databases 100/ \
-            ' /etc/redis/redis.conf
+            ' $CONF_FILE && \
+    # Create symlink for redis.conf compatibility if using valkey
+    if [ -f /etc/valkey/valkey.conf ] && [ ! -f /etc/redis/redis.conf ]; then \
+        mkdir -p /etc/redis && ln -sf /etc/valkey/valkey.conf /etc/redis/redis.conf; \
+    fi
 
 COPY ["supervisord.conf.j2", "/usr/share/sonic/templates/"]
 COPY ["critical_processes.j2", "/usr/share/sonic/templates/"]
