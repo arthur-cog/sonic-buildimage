@@ -18,7 +18,7 @@ on:
 
 jobs:
   label:
-    if: github.repository_owner == 'sonic-net'
+    if: github.repository_owner == 'sonic-net' || github.repository_owner == 'arthur-cog'
     runs-on: ubuntu-latest
     steps:
     - uses: actions/labeler@main
