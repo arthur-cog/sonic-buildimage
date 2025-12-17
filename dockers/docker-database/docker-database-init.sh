@@ -17,7 +17,7 @@ then
     host_ip=127.0.0.1
 fi
 
-redis_port=6379
+valkey_port=6379
 
 if [[ $DATABASE_TYPE == "dpudb" ]]; then
     host_ip="169.254.200.254"
@@ -25,7 +25,7 @@ if [[ $DATABASE_TYPE == "dpudb" ]]; then
         host_ip=127.0.0.1
     fi
     DPU_ID=`echo $DEV | tr -dc '0-9'`
-    redis_port=`expr 6381 + $DPU_ID`
+    valkey_port=`expr 6381 + $DPU_ID`
 fi
 
 if [[ $IS_DPU_DEVICE == "true" ]]
@@ -43,17 +43,17 @@ fi
 
 export BMP_DB_PORT=6400
 
-REDIS_DIR=/var/run/redis$NAMESPACE_ID
-mkdir -p $REDIS_DIR/sonic-db
+VALKEY_DIR=/var/run/valkey$NAMESPACE_ID
+mkdir -p $VALKEY_DIR/sonic-db
 mkdir -p /etc/supervisor/conf.d/
 
 if [ -f /etc/sonic/database_config$NAMESPACE_ID.json ]; then
-    cp /etc/sonic/database_config$NAMESPACE_ID.json $REDIS_DIR/sonic-db/database_config.json
+    cp /etc/sonic/database_config$NAMESPACE_ID.json $VALKEY_DIR/sonic-db/database_config.json
 else
     if [ -f /etc/sonic/enable_multidb ]; then
-        HOST_IP=$host_ip REDIS_PORT=$redis_port DATABASE_TYPE=$DATABASE_TYPE BMP_DB_PORT=$BMP_DB_PORT j2 /usr/share/sonic/templates/multi_database_config.json.j2 > $REDIS_DIR/sonic-db/database_config.json
+        HOST_IP=$host_ip VALKEY_PORT=$valkey_port DATABASE_TYPE=$DATABASE_TYPE BMP_DB_PORT=$BMP_DB_PORT j2 /usr/share/sonic/templates/multi_database_config.json.j2 > $VALKEY_DIR/sonic-db/database_config.json
     else
-        HOST_IP=$host_ip REDIS_PORT=$redis_port DATABASE_TYPE=$DATABASE_TYPE BMP_DB_PORT=$BMP_DB_PORT j2 /usr/share/sonic/templates/database_config.json.j2 > $REDIS_DIR/sonic-db/database_config.json
+        HOST_IP=$host_ip VALKEY_PORT=$valkey_port DATABASE_TYPE=$DATABASE_TYPE BMP_DB_PORT=$BMP_DB_PORT j2 /usr/share/sonic/templates/database_config.json.j2 > $VALKEY_DIR/sonic-db/database_config.json
     fi
 fi
 
@@ -72,25 +72,25 @@ chassis_db_port=""
 chassisdb_config="/usr/share/sonic/platform/chassisdb.conf"
 [ -f $chassisdb_config ] && source $chassisdb_config
 
-db_cfg_file="/var/run/redis/sonic-db/database_config.json"
-db_cfg_file_tmp="/var/run/redis/sonic-db/database_config.json.tmp"
+db_cfg_file="/var/run/valkey/sonic-db/database_config.json"
+db_cfg_file_tmp="/var/run/valkey/sonic-db/database_config.json.tmp"
 cp $db_cfg_file $db_cfg_file_tmp
 
 if [[ $DATABASE_TYPE == "chassisdb" ]]; then
     # Docker init for database-chassis
     echo "Init docker-database-chassis..."
-    VAR_LIB_REDIS_CHASSIS_DIR="/var/lib/redis_chassis"
-    mkdir -p $VAR_LIB_REDIS_CHASSIS_DIR   
+    VAR_LIB_VALKEY_CHASSIS_DIR="/var/lib/redis_chassis"
+    mkdir -p $VAR_LIB_VALKEY_CHASSIS_DIR   
     update_chassisdb_config -j $db_cfg_file_tmp -k -p $chassis_db_port
     # Set protected mode based on the hostname
     additional_data_json=$(jq -c '{INSTANCES: .INSTANCES | map_values({is_protected_mode: (.hostname == "127.0.0.1")})}' "$db_cfg_file_tmp")
-    # generate all redis server supervisord configuration file
+    # generate all valkey server supervisord configuration file
     sonic-cfggen -j $db_cfg_file_tmp -a "$additional_data_json" \
     -t /usr/share/sonic/templates/supervisord.conf.j2,/etc/supervisor/conf.d/supervisord.conf \
     -t /usr/share/sonic/templates/critical_processes.j2,/etc/supervisor/critical_processes
     rm $db_cfg_file_tmp
-    chown -R redis:redis $VAR_LIB_REDIS_CHASSIS_DIR
-    chown -R redis:redis $REDIS_DIR
+    chown -R valkey:valkey $VAR_LIB_VALKEY_CHASSIS_DIR
+    chown -R valkey:valkey $VALKEY_DIR
     exec /usr/local/bin/supervisord
     exit 0
 fi
@@ -99,16 +99,16 @@ fi
 if [[ $NAMESPACE_ID == "" && $DATABASE_TYPE == "" && ( $NAMESPACE_COUNT -gt 1 || $NUM_DPU -gt 1) ]]
 then
     if [ -f /etc/sonic/database_global.json ]; then
-        cp /etc/sonic/database_global.json $REDIS_DIR/sonic-db/database_global.json
+        cp /etc/sonic/database_global.json $VALKEY_DIR/sonic-db/database_global.json
     else
-        j2 /usr/share/sonic/templates/database_global.json.j2 > $REDIS_DIR/sonic-db/database_global.json
+        j2 /usr/share/sonic/templates/database_global.json.j2 > $VALKEY_DIR/sonic-db/database_global.json
     fi
 fi
 # delete chassisdb config to generate supervisord config
 update_chassisdb_config -j $db_cfg_file_tmp -d
 # Set protected mode based on the hostname
 additional_data_json=$(jq -c '{INSTANCES: .INSTANCES | map_values({is_protected_mode: (.hostname == "127.0.0.1")})}' "$db_cfg_file_tmp")
-# For Linecard databases, disable Redis protected mode to expose them to the midplane.
+# For Linecard databases, disable Valkey protected mode to expose them to the midplane.
 if [ -f "$chassisdb_config" ] && [[ "$start_chassis_db" != "1" ]]; then
     additional_data_json=$(jq -c '{INSTANCES: .INSTANCES | map_values({is_protected_mode: false})}' "$db_cfg_file_tmp")
 fi
@@ -124,9 +124,9 @@ fi
 rm $db_cfg_file_tmp
 
 # copy dump.rdb file to each instance for restoration
-DUMPFILE=/var/lib/redis/dump.rdb
-redis_inst_list=`/usr/bin/python3 -c "from swsscommon import swsscommon; print(' '.join(swsscommon.SonicDBConfig.getInstanceList().keys()))"`
-for inst in $redis_inst_list
+DUMPFILE=/var/lib/valkey/dump.rdb
+valkey_inst_list=`/usr/bin/python3 -c "from swsscommon import swsscommon; print(' '.join(swsscommon.SonicDBConfig.getInstanceList().keys()))"`
+for inst in $valkey_inst_list
 do
     mkdir -p /var/lib/$inst
     if [[ -f $DUMPFILE ]]; then
@@ -137,12 +137,12 @@ do
     else
         echo -n > /var/lib/$inst/dump.rdb
     fi
-    # the Redis process is operating under the 'redis' user in supervisord and make redis user own /var/lib/$inst inside db container.
-    chown -R redis:redis /var/lib/$inst
+    # the Valkey process is operating under the 'valkey' user in supervisord and make valkey user own /var/lib/$inst inside db container.
+    chown -R valkey:valkey /var/lib/$inst
 done
 
-chown -R redis:redis $REDIS_DIR
-REDIS_BMP_DIR="/var/lib/redis_bmp"
-chown -R redis:redis $REDIS_BMP_DIR
+chown -R valkey:valkey $VALKEY_DIR
+VALKEY_BMP_DIR="/var/lib/redis_bmp"
+chown -R valkey:valkey $VALKEY_BMP_DIR
 
 exec /usr/local/bin/supervisord

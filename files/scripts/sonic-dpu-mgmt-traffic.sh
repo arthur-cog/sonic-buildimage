@@ -108,7 +108,7 @@ inbound_validation(){
     while IFS= read -r line; do
         dpu_name=$( echo "$line" | sed 's/.*|//;s/"//g')
         dpu_l+=("$dpu_name")
-    done < <(redis-cli -n 4 keys DPUS*)
+    done < <(valkey-cli -n 4 keys DPUS*)
     len1=${#dpu_name[@]}
     if [ "$len1" -eq 0 ]; then
         echo "No dpus detected on device!"
@@ -142,7 +142,7 @@ inbound_validation(){
     fi
     port_use_validation ${provided_ports[@]}
     for dpu in "${sel_dpu_names[@]}"; do
-        midplane_int_name=$(redis-cli -n 4 hget "DPUS|$dpu" "midplane_interface")
+        midplane_int_name=$(valkey-cli -n 4 hget "DPUS|$dpu" "midplane_interface")
         if [ -z "$midplane_int_name" ]; then
             echo "Cannot obtain midplane interface for $dpu"
             exit 1
@@ -151,7 +151,7 @@ inbound_validation(){
     done
 
     for dpu in "${!midplane_dict[@]}"; do
-        midplane_ip=$(redis-cli -n 4 hget "DHCP_SERVER_IPV4_PORT|$midplane_iface|${midplane_dict[$dpu]}" "ips@")
+        midplane_ip=$(valkey-cli -n 4 hget "DHCP_SERVER_IPV4_PORT|$midplane_iface|${midplane_dict[$dpu]}" "ips@")
         if [ -z "$midplane_ip" ]; then
             echo "Cannot obtain midplane ip for $dpu"
             exit 1

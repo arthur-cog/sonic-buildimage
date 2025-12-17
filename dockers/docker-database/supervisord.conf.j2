@@ -31,24 +31,24 @@ stderr_syslog=true
 dependent_startup=true
 
 {% if INSTANCES %}
-{%     for redis_inst, redis_items in INSTANCES.items() %}
-{%- if redis_inst != 'remote_redis' %}
-[program:{{ redis_inst }}]
-{% if redis_items['hostname'] != '127.0.0.1' %}
-{%- if redis_inst != 'redis_chassis' %}
+{%     for valkey_inst, valkey_items in INSTANCES.items() %}
+{%- if valkey_inst != 'remote_redis' %}
+[program:{{ valkey_inst }}]
+{% if valkey_items['hostname'] != '127.0.0.1' %}
+{%- if valkey_inst != 'redis_chassis' %}
 {%- set LOOPBACK_IP = '127.0.0.1' -%}
 {%- endif -%}
 {%- else -%}
 {%- set LOOPBACK_IP = '' -%}
 {%- endif -%}
-{%- if not redis_items['is_protected_mode'] %}
+{%- if not valkey_items['is_protected_mode'] %}
 {%- set ADDITIONAL_OPTS = '--protected-mode no' %}
 {%- else %}
 {%- set ADDITIONAL_OPTS = '' %}
 {%- endif -%}
-command=/bin/bash -c "{ [[ -s /var/lib/{{ redis_inst }}/dump.rdb ]] || rm -f /var/lib/{{ redis_inst }}/dump.rdb; } && mkdir -p /var/lib/{{ redis_inst }} && exec /usr/bin/redis-server /etc/redis/redis.conf --bind {{ LOOPBACK_IP }} {{ redis_items['hostname'] }} --port {{ redis_items['port'] }} --unixsocket {{ redis_items['unix_socket_path'] }} --pidfile /var/run/redis/{{ redis_inst }}.pid --dir /var/lib/{{ redis_inst }} {{ ADDITIONAL_OPTS }}"
+command=/bin/bash -c "{ [[ -s /var/lib/{{ valkey_inst }}/dump.rdb ]] || rm -f /var/lib/{{ valkey_inst }}/dump.rdb; } && mkdir -p /var/lib/{{ valkey_inst }} && exec /usr/bin/valkey-server /etc/valkey/valkey.conf --bind {{ LOOPBACK_IP }} {{ valkey_items['hostname'] }} --port {{ valkey_items['port'] }} --unixsocket {{ valkey_items['unix_socket_path'] }} --pidfile /var/run/valkey/{{ valkey_inst }}.pid --dir /var/lib/{{ valkey_inst }} {{ ADDITIONAL_OPTS }}"
 priority=2
-user=redis
+user=valkey
 autostart=true
 autorestart=false
 stdout_logfile=NONE
