@@ -3,8 +3,8 @@
     "INSTANCES": {
         "redis":{
             "hostname" : "{{HOST_IP}}",
-            "port" : {{REDIS_PORT}},
-            "unix_socket_path" : "/var/run/redis{{DEV}}/redis.sock",
+            "port" : {{VALKEY_PORT}},
+            "unix_socket_path" : "/var/run/valkey{{DEV}}/valkey.sock",
             "persistence_for_warm_boot" : "yes"
             {% if DATABASE_TYPE is defined and DATABASE_TYPE != "" %}
             ,"database_type": "{{DATABASE_TYPE}}"
@@ -13,7 +13,7 @@
         "redis1": {
            "hostname" : "{{HOST_IP}}",
             "port" : 6378,
-            "unix_socket_path" : "/var/run/redis{{DEV}}/redis1.sock",
+            "unix_socket_path" : "/var/run/valkey{{DEV}}/redis1.sock",
             "persistence_for_warm_boot" : "yes"
             {% if DATABASE_TYPE is defined and DATABASE_TYPE != "" %}
             ,"database_type": "{{DATABASE_TYPE}}"
@@ -22,7 +22,7 @@
         "redis2": {
             "hostname" : "{{HOST_IP}}",
             "port" : 6377,
-            "unix_socket_path" : "/var/run/redis{{DEV}}/redis2.sock",
+            "unix_socket_path" : "/var/run/valkey{{DEV}}/redis2.sock",
             "persistence_for_warm_boot" : "yes"
             {% if DATABASE_TYPE is defined and DATABASE_TYPE != "" %}
             ,"database_type": "{{DATABASE_TYPE}}"
@@ -31,7 +31,7 @@
         "redis3": {
            "hostname" : "{{HOST_IP}}",
             "port" : 6376,
-            "unix_socket_path" : "/var/run/redis{{DEV}}/redis3.sock",
+            "unix_socket_path" : "/var/run/valkey{{DEV}}/redis3.sock",
             "persistence_for_warm_boot" : "yes"
             {% if DATABASE_TYPE is defined and DATABASE_TYPE != "" %}
             ,"database_type": "{{DATABASE_TYPE}}"
@@ -40,7 +40,7 @@
         "redis4": {
             "hostname" : "{{HOST_IP}}",
             "port" : 6375,
-            "unix_socket_path" : "/var/run/redis{{DEV}}/redis4.sock",
+            "unix_socket_path" : "/var/run/valkey{{DEV}}/redis4.sock",
             "persistence_for_warm_boot" : "yes"
             {% if DATABASE_TYPE is defined and DATABASE_TYPE != "" %}
             ,"database_type": "{{DATABASE_TYPE}}"
@@ -49,7 +49,7 @@
         "redis_chassis":{
             "hostname" : "redis_chassis.server",
             "port": 6380,
-            "unix_socket_path": "/var/run/redis-chassis/redis_chassis.sock",
+            "unix_socket_path": "/var/run/valkey-chassis/redis_chassis.sock",
             "persistence_for_warm_boot" : "yes"
         }
 {% if include_remote_db %}
@@ -63,7 +63,7 @@
         "redis_bmp":{
             "hostname" : "{{HOST_IP}}",
             "port" : {{BMP_DB_PORT}},
-            "unix_socket_path" : "/var/run/redis{{DEV}}/redis_bmp.sock",
+            "unix_socket_path" : "/var/run/valkey{{DEV}}/redis_bmp.sock",
             "persistence_for_warm_boot" : "yes"
         }
     },

@@ -10,7 +10,7 @@ from swsscommon.swsscommon import APPL_DB, STATE_DB
 
 logger = log.Logger('write_standby')
 
-REDIS_SOCK_PATH = '/var/run/redis/redis.sock'
+VALKEY_SOCK_PATH = '/var/run/valkey/valkey.sock'
 
 
 def create_fvs(**kwargs):
@@ -50,7 +50,7 @@ class MuxStateWriter(object):
         Initializes the connector during the first call
         """
         if self.appl_db_connector is None:
-            self.appl_db_connector = DBConnector(APPL_DB, REDIS_SOCK_PATH, True)
+            self.appl_db_connector = DBConnector(APPL_DB, VALKEY_SOCK_PATH, True)
         return self.appl_db_connector
     
     @property
@@ -60,7 +60,7 @@ class MuxStateWriter(object):
         Intializes the connector during the first call
         """
         if self.state_db_connector is None:
-            self.state_db_connector = DBConnector(STATE_DB, REDIS_SOCK_PATH, True)
+            self.state_db_connector = DBConnector(STATE_DB, VALKEY_SOCK_PATH, True)
         return self.state_db_connector
 
     @property

@@ -7,14 +7,14 @@
 {
     "INCLUDES" : [
         {
-            "include" : "../../redis/sonic-db/database_config.json"
+            "include" : "../../valkey/sonic-db/database_config.json"
         },
 
 {% if namespace_cnt > 1 %}
 {% for ns in range(namespace_cnt) %}
         {
             "namespace" : "{{NAMESPACE_PREFIX}}{{ns}}",
-            "include" : "../../redis{{ns}}/sonic-db/database_config.json"
+            "include" : "../../valkey{{ns}}/sonic-db/database_config.json"
 {% if ns == namespace_cnt-1  %}
         }
 {% else %}
@@ -27,7 +27,7 @@
 {% for dpu in range(dpu_cnt) %}
         {
             "container_name" : "dpu{{dpu}}",
-            "include" : "../../redisdpu{{dpu}}/sonic-db/database_config.json"
+            "include" : "../../valkeydpu{{dpu}}/sonic-db/database_config.json"
 {% if dpu == dpu_cnt-1  %}
         }
 {% else %}

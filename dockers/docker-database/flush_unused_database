@@ -39,4 +39,4 @@ for instname, v in instlists.items():
 
             connector.flushdb()
         except RuntimeError:
-           syslog.syslog(syslog.LOG_INFO,"flushdb:Redis Unix Socket connection error for path {} and dbaname {}".format(instsocket, dbname))
+           syslog.syslog(syslog.LOG_INFO,"flushdb:Valkey Unix Socket connection error for path {} and dbaname {}".format(instsocket, dbname))
