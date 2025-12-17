@@ -24,8 +24,8 @@ stdout_syslog=true
 stderr_logfile=NONE
 stderr_syslog=true
 
-[program:redis-server]
-command=/usr/bin/redis-server /etc/redis/redis.conf
+[program:valkey-server]
+command=/usr/bin/valkey-server /etc/valkey/valkey.conf
 priority=3
 autostart=false
 autorestart=false
@@ -34,8 +34,8 @@ stdout_syslog=true
 stderr_logfile=NONE
 stderr_syslog=true
 
-[program:redis-chassis]
-command=/bin/bash -c "{ [[ -s /var/lib/redis_chassis/dump.rdb ]] || rm -f /var/lib/redis_chassis/dump.rdb; } && mkdir -p /var/lib/redis_chassis && exec /usr/bin/redis-server /etc/redis/redis.conf --bind redis_chassis.server --port 6380 --protected-mode no --unixsocket /var/run/redis/redis_chassis.sock --pidfile /var/run/redis/redis_chassis.pid --dir /var/lib/redis_chassis"
+[program:valkey-chassis]
+command=/bin/bash -c "{ [[ -s /var/lib/redis_chassis/dump.rdb ]] || rm -f /var/lib/redis_chassis/dump.rdb; } && mkdir -p /var/lib/redis_chassis && exec /usr/bin/valkey-server /etc/valkey/valkey.conf --bind redis_chassis.server --port 6380 --protected-mode no --unixsocket /var/run/redis/redis_chassis.sock --pidfile /var/run/redis/redis_chassis.pid --dir /var/lib/redis_chassis"
 priority=3
 autostart=false
 autorestart=false

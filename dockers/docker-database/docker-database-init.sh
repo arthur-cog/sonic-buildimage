@@ -17,7 +17,7 @@ then
     host_ip=127.0.0.1
 fi
 
-redis_port=6379
+valkey_port=6379
 
 if [[ $DATABASE_TYPE == "dpudb" ]]; then
     host_ip="169.254.200.254"
@@ -25,7 +25,7 @@ if [[ $DATABASE_TYPE == "dpudb" ]]; then
         host_ip=127.0.0.1
     fi
     DPU_ID=`echo $DEV | tr -dc '0-9'`
-    redis_port=`expr 6381 + $DPU_ID`
+    valkey_port=`expr 6381 + $DPU_ID`
 fi
 
 if [[ $IS_DPU_DEVICE == "true" ]]
@@ -51,9 +51,9 @@ if [ -f /etc/sonic/database_config$NAMESPACE_ID.json ]; then
     cp /etc/sonic/database_config$NAMESPACE_ID.json $REDIS_DIR/sonic-db/database_config.json
 else
     if [ -f /etc/sonic/enable_multidb ]; then
-        HOST_IP=$host_ip REDIS_PORT=$redis_port DATABASE_TYPE=$DATABASE_TYPE BMP_DB_PORT=$BMP_DB_PORT j2 /usr/share/sonic/templates/multi_database_config.json.j2 > $REDIS_DIR/sonic-db/database_config.json
+        HOST_IP=$host_ip REDIS_PORT=$valkey_port DATABASE_TYPE=$DATABASE_TYPE BMP_DB_PORT=$BMP_DB_PORT j2 /usr/share/sonic/templates/multi_database_config.json.j2 > $REDIS_DIR/sonic-db/database_config.json
     else
-        HOST_IP=$host_ip REDIS_PORT=$redis_port DATABASE_TYPE=$DATABASE_TYPE BMP_DB_PORT=$BMP_DB_PORT j2 /usr/share/sonic/templates/database_config.json.j2 > $REDIS_DIR/sonic-db/database_config.json
+        HOST_IP=$host_ip REDIS_PORT=$valkey_port DATABASE_TYPE=$DATABASE_TYPE BMP_DB_PORT=$BMP_DB_PORT j2 /usr/share/sonic/templates/database_config.json.j2 > $REDIS_DIR/sonic-db/database_config.json
     fi
 fi
 
