@@ -1,0 +1,208 @@
+# This workflow creates a PR from a fork branch to the upstream sonic-net repository.
+# It can be triggered manually or automatically when a branch is pushed.
+#
+# Usage:
+#   1. Manual trigger: Go to Actions > "Create Upstream PR" > Run workflow
+#   2. Automatic trigger: Push to a branch matching the pattern (e.g., devin/*)
+#
+# Requirements:
+#   - A Personal Access Token (PAT) with `public_repo` scope stored as UPSTREAM_PR_TOKEN secret
+#   - The PAT must belong to a user who can create PRs on the upstream repo
+
+name: Create Upstream PR
+
+on:
+  # Manual trigger with customizable inputs
+  workflow_dispatch:
+    inputs:
+      source_branch:
+        description: 'Source branch in your fork (leave empty to use current branch)'
+        required: false
+        type: string
+      target_branch:
+        description: 'Target branch in upstream repo'
+        required: false
+        default: 'master'
+        type: string
+      upstream_repo:
+        description: 'Upstream repository (e.g., sonic-net/sonic-buildimage)'
+        required: false
+        default: 'sonic-net/sonic-buildimage'
+        type: string
+      pr_title:
+        description: 'PR title (leave empty to auto-generate from branch name)'
+        required: false
+        type: string
+      pr_body:
+        description: 'PR body/description'
+        required: false
+        type: string
+      draft:
+        description: 'Create as draft PR'
+        required: false
+        default: false
+        type: boolean
+
+  # Automatic trigger on push to specific branch patterns
+  push:
+    branches:
+      - 'devin/**'
+      - 'feature/**'
+      - 'fix/**'
+      - 'upstream/**'
+
+# Prevent concurrent runs on the same branch
+concurrency:
+  group: upstream-pr-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  create-upstream-pr:
+    runs-on: ubuntu-latest
+    
+    # Skip if this is the upstream repo itself
+    if: github.repository != 'sonic-net/sonic-buildimage'
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          
+      - name: Determine branch and repo settings
+        id: config
+        run: |
+          # Determine source branch
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" && -n "${{ inputs.source_branch }}" ]]; then
+            SOURCE_BRANCH="${{ inputs.source_branch }}"
+          else
+            SOURCE_BRANCH="${GITHUB_REF#refs/heads/}"
+          fi
+          echo "source_branch=${SOURCE_BRANCH}" >> $GITHUB_OUTPUT
+          
+          # Determine target branch
+          TARGET_BRANCH="${{ inputs.target_branch || 'master' }}"
+          echo "target_branch=${TARGET_BRANCH}" >> $GITHUB_OUTPUT
+          
+          # Determine upstream repo
+          UPSTREAM_REPO="${{ inputs.upstream_repo || 'sonic-net/sonic-buildimage' }}"
+          echo "upstream_repo=${UPSTREAM_REPO}" >> $GITHUB_OUTPUT
+          
+          # Get fork owner
+          FORK_OWNER="${{ github.repository_owner }}"
+          echo "fork_owner=${FORK_OWNER}" >> $GITHUB_OUTPUT
+          
+          # Generate PR title if not provided
+          if [[ -n "${{ inputs.pr_title }}" ]]; then
+            PR_TITLE="${{ inputs.pr_title }}"
+          else
+            # Convert branch name to title (e.g., devin/1234-redis-to-valkey -> Redis to valkey)
+            PR_TITLE=$(echo "${SOURCE_BRANCH}" | sed 's|.*/||' | sed 's/^[0-9]*-//' | sed 's/-/ /g' | sed 's/\b\(.\)/\u\1/')
+          fi
+          echo "pr_title=${PR_TITLE}" >> $GITHUB_OUTPUT
+          
+          echo "Configuration:"
+          echo "  Source branch: ${SOURCE_BRANCH}"
+          echo "  Target branch: ${TARGET_BRANCH}"
+          echo "  Upstream repo: ${UPSTREAM_REPO}"
+          echo "  Fork owner: ${FORK_OWNER}"
+          echo "  PR title: ${PR_TITLE}"
+
+      - name: Check if PR already exists
+        id: check_pr
+        env:
+          GH_TOKEN: ${{ secrets.UPSTREAM_PR_TOKEN || secrets.GITHUB_TOKEN }}
+        run: |
+          UPSTREAM_REPO="${{ steps.config.outputs.upstream_repo }}"
+          FORK_OWNER="${{ steps.config.outputs.fork_owner }}"
+          SOURCE_BRANCH="${{ steps.config.outputs.source_branch }}"
+          
+          # Check for existing PR from this fork branch
+          EXISTING_PR=$(gh pr list \
+            --repo "${UPSTREAM_REPO}" \
+            --head "${FORK_OWNER}:${SOURCE_BRANCH}" \
+            --json number,url,state \
+            --jq '.[0]' 2>/dev/null || echo "")
+          
+          if [[ -n "${EXISTING_PR}" && "${EXISTING_PR}" != "null" ]]; then
+            PR_NUMBER=$(echo "${EXISTING_PR}" | jq -r '.number')
+            PR_URL=$(echo "${EXISTING_PR}" | jq -r '.url')
+            PR_STATE=$(echo "${EXISTING_PR}" | jq -r '.state')
+            echo "exists=true" >> $GITHUB_OUTPUT
+            echo "pr_number=${PR_NUMBER}" >> $GITHUB_OUTPUT
+            echo "pr_url=${PR_URL}" >> $GITHUB_OUTPUT
+            echo "pr_state=${PR_STATE}" >> $GITHUB_OUTPUT
+            echo "PR already exists: ${PR_URL} (state: ${PR_STATE})"
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+            echo "No existing PR found"
+          fi
+
+      - name: Create upstream PR
+        if: steps.check_pr.outputs.exists != 'true'
+        id: create_pr
+        env:
+          GH_TOKEN: ${{ secrets.UPSTREAM_PR_TOKEN || secrets.GITHUB_TOKEN }}
+          INPUT_PR_BODY: ${{ inputs.pr_body }}
+        run: |
+          UPSTREAM_REPO="${{ steps.config.outputs.upstream_repo }}"
+          FORK_OWNER="${{ steps.config.outputs.fork_owner }}"
+          SOURCE_BRANCH="${{ steps.config.outputs.source_branch }}"
+          TARGET_BRANCH="${{ steps.config.outputs.target_branch }}"
+          PR_TITLE="${{ steps.config.outputs.pr_title }}"
+          
+          # Build PR body
+          if [[ -n "${INPUT_PR_BODY}" ]]; then
+            PR_BODY="${INPUT_PR_BODY}"
+          else
+            PR_BODY="## Description
+          
+          This PR was automatically created from fork branch \`${FORK_OWNER}:${SOURCE_BRANCH}\`.
+          
+          ## Changes
+          
+          <!-- Please describe your changes here -->
+          
+          ---
+          *Created by [Create Upstream PR workflow](https://github.com/${{ github.repository }}/actions/workflows/create-upstream-pr.yml)*"
+          fi
+          
+          # Create the PR
+          echo "Creating PR..."
+          DRAFT_FLAG=""
+          if [[ "${{ inputs.draft }}" == "true" ]]; then
+            DRAFT_FLAG="--draft"
+          fi
+          
+          PR_URL=$(gh pr create \
+            --repo "${UPSTREAM_REPO}" \
+            --head "${FORK_OWNER}:${SOURCE_BRANCH}" \
+            --base "${TARGET_BRANCH}" \
+            --title "${PR_TITLE}" \
+            --body "${PR_BODY}" \
+            ${DRAFT_FLAG} \
+            2>&1) || {
+              echo "Failed to create PR: ${PR_URL}"
+              exit 1
+            }
+          
+          echo "pr_url=${PR_URL}" >> $GITHUB_OUTPUT
+          echo "Successfully created PR: ${PR_URL}"
+
+      - name: Summary
+        run: |
+          echo "## Upstream PR Status" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          if [[ "${{ steps.check_pr.outputs.exists }}" == "true" ]]; then
+            echo "**PR already exists:** ${{ steps.check_pr.outputs.pr_url }}" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "State: \`${{ steps.check_pr.outputs.pr_state }}\`" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "**New PR created:** ${{ steps.create_pr.outputs.pr_url }}" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Configuration" >> $GITHUB_STEP_SUMMARY
+          echo "- **Source:** \`${{ steps.config.outputs.fork_owner }}:${{ steps.config.outputs.source_branch }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Target:** \`${{ steps.config.outputs.upstream_repo }}:${{ steps.config.outputs.target_branch }}\`" >> $GITHUB_STEP_SUMMARY
